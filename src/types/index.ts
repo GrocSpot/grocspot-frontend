@@ -12,4 +12,5 @@ export type RootStackParamList = {
   EmailSent: { email: string };        // receives the email the user signed up with
   Login: undefined;
   Home: undefined;
+  QRScan: { token: string }; 
 };
