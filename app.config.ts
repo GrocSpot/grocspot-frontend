@@ -29,6 +29,8 @@ export default {
     extra: {
       API_BASE_URL: process.env.API_BASE_URL,
       GOOGLE_CLIENT_ID_WEB: process.env.GOOGLE_CLIENT_ID_WEB,
+      GOOGLE_CLIENT_ID_ANDROID: process.env.GOOGLE_CLIENT_ID_ANDROID,
+      GOOGLE_CLIENT_ID_IOS: process.env.GOOGLE_CLIENT_ID_IOS,
     },
-  },
+  }
 };

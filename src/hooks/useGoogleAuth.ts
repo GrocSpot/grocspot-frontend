@@ -16,10 +16,12 @@ export function useGoogleAuth() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    webClientId: ENV.GOOGLE_CLIENT_ID_WEB,
-    redirectUri: makeRedirectUri(),
-  });
+const [request, response, promptAsync] = Google.useAuthRequest({
+  webClientId: ENV.GOOGLE_CLIENT_ID_WEB,
+  androidClientId: ENV.GOOGLE_CLIENT_ID_ANDROID,
+  iosClientId: ENV.GOOGLE_CLIENT_ID_IOS,
+  redirectUri: makeRedirectUri(),
+});
 
   const signInWithGoogle = async (callbacks: {
     onSuccess: () => void;
