@@ -13,7 +13,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';

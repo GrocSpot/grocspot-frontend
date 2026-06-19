@@ -1,10 +1,3 @@
-// ─────────────────────────────────────────────
-//  src/services/authService.ts
-//
-//  All HTTP calls for authentication.
-//  Never call fetch directly from hooks or screens.
-// ─────────────────────────────────────────────
-
 import { ENV } from '../config/env';
 
 const BASE_URL = ENV.API_BASE_URL;

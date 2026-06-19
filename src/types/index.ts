@@ -1,11 +1,17 @@
-// ─────────────────────────────────────────────
-//  types/index.ts
-//
-//  Centralised TypeScript types for the app.
-//  Add every screen name + its params here.
-// ─────────────────────────────────────────────
+export interface PaginatedResponse<T> {
+  content: T[];
+  currentPage: number;
+  last: boolean;
+  pageSize: number;
+  totalElements: number;
+  totalPages: number;
+}
 
-// ── Navigation ────────────────────────────────
+export interface ApiResponse<T> {
+  statusCode: number;
+  message: string;
+  response: T;
+}
 
 export type RootStackParamList = {
   SignUp: undefined;
@@ -60,5 +66,18 @@ export interface Product {
     weightGrams?: number;
     isVegetarian?: boolean;
     [key: string]: unknown;
+  };
+}
+
+// ── Session init response ─────────────────────
+
+export interface SessionInitResponse {
+  statusCode: number;
+  message: string;
+  response: {
+    expiresAt: string;
+    sessionId: string;
+    sessionToken: string;
+    storeId: string;
   };
 }

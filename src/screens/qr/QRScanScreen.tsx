@@ -4,73 +4,100 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../../types';
-import { ENV } from '../../config/env';
-import { sessionStorage } from '../../storage/sessionStorage';
+import { tokenStorage } from '../../storage/tokenStorage';
+import { decodeQRToken, isQRTokenExpired } from '../../utils/tokenUtils';
+import { initGuestSession } from '../../services/sessionService';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'QRScan'>;
   route: RouteProp<RootStackParamList, 'QRScan'>;
 };
 
-type Status = 'loading' | 'success' | 'error';
+type Status = 'resolving' | 'error';
 
-export default function QRScanScreen({ route, navigation }: Props) {
-  const { token } = route.params;
-  const [status, setStatus] = useState<Status>('loading');
-  const [message, setMessage] = useState('Initializing session…');
+export default function QRScanScreen({ navigation, route }: Props) {
+  const { token: qrToken } = route.params;
+  const [status, setStatus] = useState<Status>('resolving');
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    const initSession = async () => {
-      try {
-        const res = await fetch(`${ENV.API_BASE_URL}/api/sessions/init`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            qrToken: token,
-            deviceInfo: navigator.userAgent ?? 'Unknown device',
-          }),
-        });
+    let cancelled = false;
 
-        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+    async function resolve() {
+      // 1. Decode and validate the QR token client-side
+      const payload = decodeQRToken(qrToken);
 
-        const data = await res.json();
-        const storeId: string = data?.response?.storeId;
-        const sessionId: string | undefined = data?.response?.sessionId;
-        const sessionToken: string = data?.response?.sessionToken;
-
-        if (!storeId) throw new Error('Session response missing store information.');
-        if (!sessionToken) throw new Error('Session response missing access token.');
-
-        await sessionStorage.save({ sessionToken, storeId, sessionId });
-        navigation.replace('SessionHome', { storeId, sessionId, sessionToken });
-      } catch (err: any) {
-        setStatus('error');
-        setMessage(err?.message ?? 'Something went wrong. Please try again.');
+      if (!payload) {
+        if (!cancelled) { setErrorMsg('Invalid QR code.'); setStatus('error'); }
+        return;
       }
-    };
 
-    initSession();
-  }, [token]);
+      if (isQRTokenExpired(qrToken)) {
+        if (!cancelled) { setErrorMsg('This QR code has expired. Ask store staff to refresh it.'); setStatus('error'); }
+        return;
+      }
+
+      const storeId = payload.sub; // sub = storeId
+
+      // 2. Check if this device has a logged-in user
+      const savedAccessToken = await tokenStorage.get();
+
+      if (savedAccessToken) {
+        // ── APP USER ──────────────────────────
+        // Already authenticated. Use their token directly.
+        // No session/init call needed.
+        if (!cancelled) {
+          navigation.replace('SessionHome', {
+            storeId,
+            sessionToken: savedAccessToken,
+            // sessionId omitted — not applicable for app users
+          });
+        }
+        return;
+      }
+
+      // ── GUEST ─────────────────────────────
+      // No login. Call session/init to get a session token.
+      try {
+        const result = await initGuestSession(qrToken);
+        if (!cancelled) {
+          navigation.replace('SessionHome', {
+            storeId: result.response.storeId,
+            sessionId: result.response.sessionId,
+            sessionToken: result.response.sessionToken,
+          });
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setErrorMsg(err?.message ?? 'Could not start session. Please scan again.');
+          setStatus('error');
+        }
+      }
+    }
+
+    resolve();
+    return () => { cancelled = true; };
+  }, [qrToken, navigation]);
+
+  if (status === 'error') {
+    return (
+      <SafeAreaView className="flex-1 bg-[#F0FDF4] items-center justify-center px-8">
+        <Text className="text-5xl mb-4">😕</Text>
+        <Text className="text-base font-bold text-[#1F2937] text-center mb-2">
+          Something went wrong
+        </Text>
+        <Text className="text-sm text-[#6B7280] text-center">{errorMsg}</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView className="flex-1 bg-[#F8FBF9] items-center justify-center px-8">
-      <View className="w-20 h-20 rounded-full bg-[#E8F2EC] items-center justify-center mb-6">
-        <Text className="text-4xl">
-          {status === 'loading' ? '⏳' : status === 'success' ? '✅' : '❌'}
-        </Text>
+    <SafeAreaView className="flex-1 bg-[#F0FDF4] items-center justify-center gap-4">
+      <View className="w-16 h-16 rounded-2xl bg-[#166534] items-center justify-center">
+        <Text className="text-3xl">🛒</Text>
       </View>
-
-      <Text className="text-2xl font-extrabold text-[#1A2E22] text-center mb-3">
-        {status === 'loading' ? 'Connecting…' : status === 'success' ? 'You\'re connected!' : 'Failed'}
-      </Text>
-
-      <Text className="text-sm text-[#5A7566] text-center leading-6">
-        {message}
-      </Text>
-
-      {status === 'loading' && (
-        <ActivityIndicator className="mt-6" color="#2D7A4F" />
-      )}
+      <ActivityIndicator color="#166534" size="large" />
+      <Text className="text-sm text-[#6B7280] mt-2">Starting your session…</Text>
     </SafeAreaView>
   );
 }

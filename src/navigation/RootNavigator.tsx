@@ -1,10 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
-import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import React, { useEffect, useState } from 'react';
+import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import * as Linking from 'expo-linking';
+import { Platform, View, ActivityIndicator } from 'react-native';
 import type { RootStackParamList } from '../types';
-import { sessionStorage } from '../storage/sessionStorage';
 
 import SignUpScreen from '../screens/auth/SignUpScreen';
 import EmailSentScreen from '../screens/auth/EmailSentScreen';
@@ -12,70 +10,86 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import HomeScreen from '../screens/home/HomeScreen';
 import QRScanScreen from '../screens/qr/QRScanScreen';
 import SessionHomeScreen from '../screens/session/SessionHomeScreen';
+import { sessionStorage } from '../storage/sessionStorage';
 import SearchScreen from '../screens/search/SearchScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-const navRef = createNavigationContainerRef<RootStackParamList>();
-
-const prefix = Linking.createURL('/');
 
 const linking = {
-  prefixes: [prefix, 'https://grocspot.com', 'http://localhost:8081'],
+  prefixes: ['http://localhost:8081', 'https://grocspot.com'],
   config: {
     screens: {
-      QRScan: 'scan',
-      Login: 'login',
-      Home: 'home',
+      QRScan: {
+        path: 'scan',
+        parse: { token: (token: string) => token },
+      },
     },
   },
 };
 
 export default function RootNavigator() {
+  const [initialRoute, setInitialRoute] =
+    useState<keyof RootStackParamList>('Login');
+  const [sessionParams, setSessionParams] =
+    useState<RootStackParamList['SessionHome'] | null>(null);
   const [ready, setReady] = useState(false);
-  const pendingSession = useRef<Parameters<typeof navRef.navigate>[1] & { name?: string } | null>(null);
 
   useEffect(() => {
-    sessionStorage.get().then((session) => {
-      if (session) {
-        pendingSession.current = session;
+    async function resolveInitialRoute() {
+      // On native, always start at Login — deep links handle QR flow
+      if (Platform.OS !== 'web') {
+        setReady(true);
+        return;
       }
+
+      // On web: if URL has ?token= let the linking config handle it (QRScan)
+      const hasQRToken = window.location.search.includes('token=');
+      if (hasQRToken) {
+        setReady(true);
+        return;
+      }
+
+      // On web reload with no token: check for a saved valid session
+      const persisted = await sessionStorage.get();
+      if (persisted) {
+        setInitialRoute('SessionHome');
+        setSessionParams(persisted);
+      }
+
       setReady(true);
-    });
+    }
+
+    resolveInitialRoute();
   }, []);
 
+  // Don't render navigator until we know the initial route
   if (!ready) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#F8FBF9', alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color="#2D7A4F" />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0FDF4' }}>
+        <ActivityIndicator color="#166534" />
       </View>
     );
   }
 
   return (
-    <NavigationContainer
-      ref={navRef}
-      linking={linking}
-      onReady={() => {
-        const session = pendingSession.current;
-        if (session) {
-          navRef.navigate('SessionHome', {
-            storeId: (session as any).storeId,
-            sessionToken: (session as any).sessionToken,
-            sessionId: (session as any).sessionId,
-          });
-        }
-      }}
-    >
+    <NavigationContainer linking={linking}>
       <Stack.Navigator
-        initialRouteName="Login"
-        screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
+        initialRouteName={initialRoute}
+        screenOptions={{
+          headerShown: false,
+          animation: 'slide_from_right',
+        }}
       >
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="SignUp" component={SignUpScreen} />
         <Stack.Screen name="EmailSent" component={EmailSentScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="QRScan" component={QRScanScreen} />
-        <Stack.Screen name="SessionHome" component={SessionHomeScreen} />
+        <Stack.Screen
+          name="SessionHome"
+          component={SessionHomeScreen}
+          initialParams={sessionParams ?? undefined}
+        />
         <Stack.Screen name="Search" component={SearchScreen} />
       </Stack.Navigator>
     </NavigationContainer>
