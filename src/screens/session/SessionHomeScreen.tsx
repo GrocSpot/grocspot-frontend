@@ -1,119 +1,33 @@
-import React, { useCallback, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { sessionStorage } from '../../storage/sessionStorage';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
-import type { RootStackParamList, Product } from '../../types';
+import type { RootStackParamList } from '../../types';
 import { useSessionHome } from '../../hooks/useSessionHome';
+import Svg, { Path } from 'react-native-svg';
+import { SkeletonCard } from './components/SkeletonCard';
+import { ProductCard } from './components/ProductCard';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'SessionHome'>;
   route: RouteProp<RootStackParamList, 'SessionHome'>;
 };
 
-// ── Skeleton card ─────────────────────────────
-
-function SkeletonCard() {
-  return (
-    <View
-      className="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden mb-3"
-      style={{ width: '48%' }}
-    >
-      <View className="h-28 bg-[#F0FDF4]" />
-      <View className="p-3 gap-2">
-        <View className="h-2 w-12 rounded-full bg-[#E5E7EB]" />
-        <View className="h-3 w-20 rounded-full bg-[#F0FDF4]" />
-        <View className="h-2 w-10 rounded-full bg-[#F0FDF4]" />
-        <View className="mt-2 h-8 rounded-xl bg-[#F0FDF4]" />
-      </View>
-    </View>
-  );
-}
-
-// ── Product card ──────────────────────────────
-
-interface ProductCardProps {
-  product: Product;
-  qty: number;
-  onAdd: () => void;
-  onRemove: () => void;
-}
-
-function ProductCard({ product, qty, onAdd, onRemove }: ProductCardProps) {
-  return (
-    <View
-      className="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden mb-3"
-      style={{ width: '48%' }}
-    >
-      {/* Image */}
-      <View className="h-28 bg-[#F8FAFC] items-center justify-center">
-        {product.imageUrl ? (
-          <Image
-            source={{ uri: product.imageUrl }}
-            className="w-full h-full"
-            resizeMode="contain"
-          />
-        ) : (
-          <Text className="text-5xl">📦</Text>
-        )}
-      </View>
-
-      {/* Info */}
-      <View className="p-3">
-        <Text className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wide mb-0.5">
-          {product.brand}
-        </Text>
-        <Text
-          className="text-xs font-bold text-[#1F2937] leading-tight mb-1"
-          numberOfLines={2}
-        >
-          {product.name}
-        </Text>
-        {product.metadata?.weightGrams && (
-          <Text className="text-[10px] text-[#9CA3AF] mb-2">
-            {product.metadata.weightGrams}g
-          </Text>
-        )}
-
-        {/* Add / qty control */}
-        {qty === 0 ? (
-          <TouchableOpacity
-            onPress={onAdd}
-            activeOpacity={0.8}
-            className="h-8 rounded-xl bg-[#166534] items-center justify-center"
-          >
-            <Text className="text-white text-xs font-bold">+ Add</Text>
-          </TouchableOpacity>
-        ) : (
-          <View className="h-8 rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] flex-row items-center justify-between px-2">
-            <TouchableOpacity onPress={onRemove} className="w-6 h-6 items-center justify-center">
-              <Text className="text-[#166534] text-base font-bold">−</Text>
-            </TouchableOpacity>
-            <Text className="text-[#166534] text-xs font-bold">{qty}</Text>
-            <TouchableOpacity onPress={onAdd} className="w-6 h-6 items-center justify-center">
-              <Text className="text-[#166534] text-base font-bold">+</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-    </View>
-  );
-}
-
-// ── Screen ────────────────────────────────────
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export default function SessionHomeScreen({ navigation, route }: Props) {
   const { storeId, sessionToken, sessionId } = route.params;
 
   const {
+    store,
     categories,
     products,
     isLoadingCats,
@@ -123,41 +37,40 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
     setSelectedCategoryId,
     cart,
     cartCount,
-    cartItems,
     addToCart,
     removeFromCart,
   } = useSessionHome(storeId, sessionToken);
 
   const handleSearchPress = useCallback(() => {
-    navigation.navigate('Search', {
-      sessionToken,
-      categories,
-    });
+    navigation.navigate('Search', { sessionToken, categories });
   }, [navigation, sessionToken, categories]);
 
   useEffect(() => {
-  sessionStorage.save({ storeId, sessionToken, sessionId });
-}, [storeId, sessionToken, sessionId]);
+    sessionStorage.save({ storeId, sessionToken, sessionId });
+  }, [storeId, sessionToken, sessionId]);
+
+  const sectionLabel =
+    selectedCategoryId === 'all'
+      ? 'All Products'
+      : categories.find((c) => c.categoryId === selectedCategoryId)?.name ?? 'Products';
 
   return (
     <SafeAreaView className="flex-1 bg-[#F0FDF4]" edges={['top']}>
-
-      {/* ── STICKY HEADER ── */}
       <View className="bg-white border-b border-[#BBF7D0]">
-
-        {/* Logo + cart */}
         <View className="flex-row items-center justify-between px-4 pt-3 pb-2">
           <View className="flex-row items-center gap-2">
-            <View className="w-8 h-8 rounded-xl bg-[#166534] items-center justify-center">
-              <Text className="text-white text-sm">✓</Text>
-            </View>
             <Text className="text-[17px] font-bold text-[#166534] tracking-tight">
               GrocSpot
             </Text>
           </View>
 
-          <TouchableOpacity className="w-9 h-9 rounded-full bg-[#F0FDF4] border border-[#BBF7D0] items-center justify-center">
-            <Text className="text-base">🛒</Text>
+          <TouchableOpacity
+            className="w-9 h-9 rounded-full bg-[#F0FDF4] border border-[#BBF7D0] items-center justify-center"
+            activeOpacity={0.7}
+          >
+            <Svg width={18} height={18} viewBox="0 0 448 512" fill="#166534">
+              <Path d="M369.4 128l-34.3-48-222.1 0-34.3 48 290.7 0zM0 148.5c0-13.3 4.2-26.3 11.9-37.2L60.9 42.8C72.9 26 92.3 16 112.9 16l222.1 0c20.7 0 40.1 10 52.1 26.8l48.9 68.5c7.8 10.9 11.9 23.9 11.9 37.2L448 416c0 35.3-28.7 64-64 64L64 480c-35.3 0-64-28.7-64-64L0 148.5z" />
+            </Svg>
             {cartCount > 0 && (
               <View
                 className="absolute -top-1 -right-1 bg-[#22C55E] rounded-full items-center justify-center border-2 border-white"
@@ -170,35 +83,49 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
             )}
           </TouchableOpacity>
         </View>
-
-        {/* Store info card */}
-        <View className="mx-4 mb-2 px-3 py-2 bg-[#F0FDF4] rounded-xl border border-[#BBF7D0] flex-row items-center justify-between">
-          <View className="flex-row items-center gap-2">
-            <View className="w-2 h-2 rounded-full bg-[#22C55E]" />
-            <View>
-              <Text className="text-xs font-semibold text-[#1F2937]">GrocSpot Store</Text>
-              <Text className="text-[10px] text-[#6B7280]">Session active</Text>
+        <View className="mx-4 mb-2 px-3 py-2 bg-white rounded-xl border border-[#BBF7D0] flex-row items-center justify-between">
+          <View className="flex-row items-center gap-2 flex-1 mr-2">
+            <View
+              className="w-2 h-2 rounded-full"
+              style={{ backgroundColor: store?.isActive === false ? '#EF4444' : '#22C55E' }}
+            />
+            <View className="flex-1">
+              <Text className="text-xs font-semibold text-[#1F2937]" numberOfLines={1}>
+                {store?.name ?? 'GrocSpot Store'}
+              </Text>
+              {store?.address ? (
+                <Text className="text-[10px] text-[#6B7280]" numberOfLines={1}>
+                  {store.address.split(',').slice(0, 3).join(',')}
+                </Text>
+              ) : (
+                <Text className="text-[10px] text-[#6B7280]">Session active</Text>
+              )}
             </View>
           </View>
-          <View className="bg-[#DCFCE7] px-2.5 py-0.5 rounded-full">
-            <Text className="text-[10px] font-bold text-[#166534]">Open</Text>
+          <View
+            className="px-2.5 py-0.5 rounded-full"
+            style={{ backgroundColor: store?.isActive === false ? '#FEE2E2' : '#DCFCE7' }}
+          >
+            <Text
+              className="text-[10px] font-bold"
+              style={{ color: store?.isActive === false ? '#DC2626' : '#166534' }}
+            >
+              {store?.isActive === false ? 'Closed' : 'Open'}
+            </Text>
           </View>
         </View>
-
-        {/* Search bar — tappable, opens Search screen */}
         <TouchableOpacity
           onPress={handleSearchPress}
           activeOpacity={0.8}
           className="mx-4 mb-2 px-3 py-2.5 bg-[#F0FDF4] rounded-xl border border-[#BBF7D0] flex-row items-center gap-2"
         >
-          <Text className="text-base">🔍</Text>
+          <Svg width={16} height={16} viewBox="0 0 448 512" fill="#9CA3AF">
+            <Path d="M448 449L301.2 300.2c20-27.9 31.9-62.2 31.9-99.2 0-93.1-74.7-168.9-166.5-168.9-91.9-.1-166.6 75.7-166.6 168.8S74.7 369.8 166.5 369.8c39.8 0 76.3-14.2 105-37.9L417.5 480 448 449zM166.5 330.8c-70.6 0-128.1-58.3-128.1-129.9S95.9 71 166.5 71 294.6 129.3 294.6 200.9 237.2 330.8 166.5 330.8z" />
+          </Svg>
           <Text className="text-[13px] text-[#9CA3AF] flex-1">
             Search milk, bread, fruits…
           </Text>
-          <Text className="text-base">🎤</Text>
         </TouchableOpacity>
-
-        {/* Category chips */}
         {isLoadingCats ? (
           <View className="h-10 items-center justify-center mb-2">
             <ActivityIndicator size="small" color="#166534" />
@@ -209,7 +136,6 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 16, gap: 8, paddingBottom: 12 }}
           >
-            {/* All chip */}
             <TouchableOpacity
               onPress={() => setSelectedCategoryId('all')}
               className={`flex-row items-center gap-1.5 px-3 py-1.5 rounded-full border ${
@@ -218,7 +144,6 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
                   : 'bg-white border-[#BBF7D0]'
               }`}
             >
-              <Text className="text-sm">🛒</Text>
               <Text className={`text-xs font-semibold ${
                 selectedCategoryId === 'all' ? 'text-white' : 'text-[#6B7280]'
               }`}>
@@ -226,59 +151,50 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
               </Text>
             </TouchableOpacity>
 
-            {categories.map((cat) => (
-              <TouchableOpacity
-                key={cat.categoryId}
-                onPress={() => setSelectedCategoryId(cat.categoryId)}
-                className={`flex-row items-center gap-1.5 px-3 py-1.5 rounded-full border ${
-                  selectedCategoryId === cat.categoryId
-                    ? 'bg-[#166534] border-[#166534]'
-                    : 'bg-white border-[#BBF7D0]'
-                }`}
-              >                
-                <Text className={`text-xs font-semibold ${
-                  selectedCategoryId === cat.categoryId ? 'text-white' : 'text-[#6B7280]'
-                }`}>
-                  {cat.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {categories.map((cat) => {
+              const active = selectedCategoryId === cat.categoryId;
+              return (
+                <TouchableOpacity
+                  key={cat.categoryId}
+                  onPress={() => setSelectedCategoryId(cat.categoryId)}
+                  className={`flex-row items-center gap-1.5 px-3 py-1.5 rounded-full border ${
+                    active ? 'bg-[#166534] border-[#166534]' : 'bg-white border-[#BBF7D0]'
+                  }`}
+                >
+                  <Text className={`text-xs font-semibold ${
+                    active ? 'text-white' : 'text-[#6B7280]'
+                  }`}>
+                    {cap(cat.name)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
         )}
       </View>
-
-      {/* ── SCROLLABLE CONTENT ── */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: cartCount > 0 ? 100 : 24 }}
       >
         {/* Promo banner */}
         <View className="mx-4 mt-4 mb-4 bg-[#166534] rounded-2xl px-4 py-4 flex-row items-center justify-between">
-          <View>
+          <View className="flex-1 pr-3">
             <Text className="text-sm font-bold text-white">Fresh arrivals today 🌿</Text>
-            <Text className="text-[11px] text-[#BBF7D0] mt-0.5">Organic produce, just stocked</Text>
+            <Text className="text-[11px] text-[#BBF7D0] mt-0.5">
+              Organic produce, just stocked
+            </Text>
           </View>
           <View className="bg-[#F59E0B] rounded-xl px-3 py-2 items-center">
             <Text className="text-white text-lg font-extrabold leading-none">15%</Text>
             <Text className="text-white text-[10px] font-semibold">OFF</Text>
           </View>
         </View>
-
-        {/* Section label */}
         <View className="flex-row items-center justify-between px-4 mb-3">
-          <Text className="text-base font-bold text-[#1F2937]">
-            {selectedCategoryId === 'all'
-              ? 'All Products'
-              : categories.find((c) => c.categoryId === selectedCategoryId)?.name ?? 'Products'}
-          </Text>
-          {!isLoadingProducts && (
-            <Text className="text-xs text-[#6B7280]">
-              {products.length} item{products.length !== 1 ? 's' : ''}
-            </Text>
-          )}
+          <Text className="text-base font-bold text-[#1F2937]">{sectionLabel}</Text>
+          <TouchableOpacity activeOpacity={0.7}>
+            <Text className="text-xs font-semibold text-[#166534]">See all →</Text>
+          </TouchableOpacity>
         </View>
-
-        {/* Error state */}
         {error && (
           <View className="items-center justify-center py-16 px-8">
             <Text className="text-4xl mb-3">😕</Text>
@@ -288,8 +204,6 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
             <Text className="text-xs text-[#6B7280] text-center">{error}</Text>
           </View>
         )}
-
-        {/* Skeleton */}
         {isLoadingProducts && !error && (
           <View className="flex-row flex-wrap px-4 gap-[4%]">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -297,8 +211,6 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
             ))}
           </View>
         )}
-
-        {/* Empty state */}
         {!isLoadingProducts && !error && products.length === 0 && (
           <View className="items-center justify-center py-16 px-8">
             <Text className="text-4xl mb-3">🔍</Text>
@@ -310,8 +222,6 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
             </Text>
           </View>
         )}
-
-        {/* Product grid */}
         {!isLoadingProducts && !error && products.length > 0 && (
           <View className="flex-row flex-wrap px-4 gap-[4%]">
             {products.map((product) => {
@@ -329,8 +239,6 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
           </View>
         )}
       </ScrollView>
-
-      {/* ── STICKY CART BAR ── */}
       {cartCount > 0 && (
         <View className="absolute bottom-0 left-0 right-0 bg-[#166534] px-4 py-3 flex-row items-center justify-between">
           <View className="flex-row items-center gap-2">
@@ -341,11 +249,11 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
             </View>
           </View>
           <TouchableOpacity
-            className="bg-[#22C55E] px-5 py-2.5 rounded-xl flex-row items-center gap-2"
+            className="bg-white px-5 py-2.5 rounded-xl flex-row items-center gap-2"
             activeOpacity={0.85}
           >
-            <Text className="text-white text-sm font-bold">View Cart</Text>
-            <Text className="text-white text-sm">→</Text>
+            <Text className="text-[#166534] text-sm font-bold">View Cart</Text>
+            <Text className="text-[#166534] text-sm">→</Text>
           </TouchableOpacity>
         </View>
       )}

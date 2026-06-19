@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { getCategories, getProducts } from '../services/sessionService';
-import type { Category, Product } from '../types';
+import { getStore, getCategories, getProducts } from '../services/sessionService';
+import type { Category, Product, Store } from '../types';
 
 export interface CartItem {
   product: Product;
@@ -8,14 +8,28 @@ export interface CartItem {
 }
 
 export function useSessionHome(storeId: string, sessionToken: string) {
+  const [store, setStore] = useState<Store | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [isLoadingStore, setIsLoadingStore] = useState(true);
   const [isLoadingCats, setIsLoadingCats] = useState(true);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [vegOnly, setVegOnly] = useState(false);
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
   const [cart, setCart] = useState<Map<string, CartItem>>(new Map());
+
+  // ── Fetch store info once ─────────────────
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoadingStore(true);
+    getStore(storeId, sessionToken)
+      .then((s) => { if (!cancelled) setStore(s); })
+      .catch(() => { /* non-fatal — fall back to generic label */ })
+      .finally(() => { if (!cancelled) setIsLoadingStore(false); });
+    return () => { cancelled = true; };
+  }, [storeId, sessionToken]);
 
   // ── Fetch categories once ─────────────────
   useEffect(() => {
@@ -75,6 +89,8 @@ export function useSessionHome(storeId: string, sessionToken: string) {
   const cartItems = useMemo(() => Array.from(cart.values()), [cart]);
 
   return {
+    store,
+    isLoadingStore,
     categories,
     products,
     isLoadingCats,

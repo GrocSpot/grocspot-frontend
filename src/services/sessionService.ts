@@ -1,6 +1,6 @@
 import { ENV } from '../config/env';
 import { ApiError } from './authService';
-import type { Category, Product, SessionInitResponse, ApiResponse, PaginatedResponse } from '../types';
+import type { Category, Product, Store, SessionInitResponse, ApiResponse, PaginatedResponse } from '../types';
 
 const BASE_URL = ENV.API_BASE_URL;
 
@@ -23,6 +23,25 @@ export async function initGuestSession(
   return data as SessionInitResponse;
 }
 
+// ── GET /api/stores/{storeId} ─────────────────
+export async function getStore(
+  storeId: string,
+  sessionToken: string,
+): Promise<Store> {
+  const url = `${BASE_URL}/api/stores/${storeId}`;
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${sessionToken}`,
+      'accept': '*/*',
+    },
+  });
+  const data: ApiResponse<Store> = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new ApiError(response.status, data?.message ?? `Failed to load store (${response.status})`);
+  }
+  return data.response;
+}
+
 // ── GET /api/categories?storeId=xxx&page=1&size=20 ───
 export async function getCategories(
   storeId: string,
@@ -42,7 +61,7 @@ export async function getCategories(
   return data.response.content;
 }
 
-// ── GET /api/products?storeId=xxx&page=1&size=10 ─────
+// ── GET /api/products?storeId=xxx&page=1&size=20 ─────
 export async function getProducts(
   storeId: string,
   sessionToken: string,
