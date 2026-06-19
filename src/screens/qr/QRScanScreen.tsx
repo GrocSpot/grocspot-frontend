@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../../types';
 import { ENV } from '../../config/env';
+import { sessionStorage } from '../../storage/sessionStorage';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'QRScan'>;
@@ -13,7 +14,7 @@ type Props = {
 
 type Status = 'loading' | 'success' | 'error';
 
-export default function QRScanScreen({ route }: Props) {
+export default function QRScanScreen({ route, navigation }: Props) {
   const { token } = route.params;
   const [status, setStatus] = useState<Status>('loading');
   const [message, setMessage] = useState('Initializing session…');
@@ -32,8 +33,16 @@ export default function QRScanScreen({ route }: Props) {
 
         if (!res.ok) throw new Error(`Server error: ${res.status}`);
 
-        setStatus('success');
-        setMessage('Session started! You can now proceed on the kiosk.');
+        const data = await res.json();
+        const storeId: string = data?.response?.storeId;
+        const sessionId: string | undefined = data?.response?.sessionId;
+        const sessionToken: string = data?.response?.sessionToken;
+
+        if (!storeId) throw new Error('Session response missing store information.');
+        if (!sessionToken) throw new Error('Session response missing access token.');
+
+        await sessionStorage.save({ sessionToken, storeId, sessionId });
+        navigation.replace('SessionHome', { storeId, sessionId, sessionToken });
       } catch (err: any) {
         setStatus('error');
         setMessage(err?.message ?? 'Something went wrong. Please try again.');
