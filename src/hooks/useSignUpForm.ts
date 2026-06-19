@@ -1,21 +1,6 @@
-// ─────────────────────────────────────────────
-//  useSignUpForm.ts
-//
-//  Manages all state for the sign-up form:
-//    • field values (5 fields matching the backend)
-//    • per-field validation errors
-//    • loading state while API call is in flight
-//    • password visibility toggles
-//    • calls authService.signUp() on submit
-//
-//  The screen itself has zero business logic —
-//  it just reads from this hook and renders.
-// ─────────────────────────────────────────────
-
 import { useState } from 'react';
 import { signUp, ApiError } from '../services/authService';
 
-// ── Form shape ────────────────────────────────
 
 export interface SignUpFormValues {
   firstName: string;
@@ -31,7 +16,7 @@ type FormErrors = Partial<Record<keyof SignUpFormValues, string>>;
 // ── Validation ────────────────────────────────
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MOBILE_REGEX = /^[6-9]\d{9}$/; // Indian mobile: starts 6-9, 10 digits
+const MOBILE_REGEX = /^[6-9]\d{9}$/; 
 const PASSWORD_REGEX =
   /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&#^])[A-Za-z\d@$!%*?&#^]{8,}$/;
 
@@ -74,8 +59,6 @@ function validate(values: SignUpFormValues): FormErrors {
   return errors;
 }
 
-// ── Hook ─────────────────────────────────────
-
 export function useSignUpForm() {
   const [values, setValues] = useState<SignUpFormValues>({
     firstName: '',
@@ -91,7 +74,6 @@ export function useSignUpForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Update a single field and clear its error immediately on edit
   const handleChange = (field: keyof SignUpFormValues) => (value: string) => {
     setValues((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
@@ -99,10 +81,7 @@ export function useSignUpForm() {
     }
   };
 
-  // Called by the screen's "Create Account" button.
-  // onSuccess: navigation callback injected by the screen.
   const handleSubmit = async (onSuccess: () => void) => {
-    // 1. Run client-side validation first (no network call if invalid)
     const validationErrors = validate(values);
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -111,7 +90,6 @@ export function useSignUpForm() {
 
     setIsLoading(true);
     try {
-      // 2. Call the backend
       await signUp({
         firstName: values.firstName.trim(),
         lastName: values.lastName.trim(),
@@ -119,11 +97,8 @@ export function useSignUpForm() {
         mobileNumber: values.mobileNumber.trim(),
         password: values.password,
       });
-
-      // 3. On success — let the screen navigate
       onSuccess();
     } catch (err) {
-      // 4. Show the backend error message inline under the email field
       if (err instanceof ApiError) {
         setErrors({ email: err.message });
       } else {

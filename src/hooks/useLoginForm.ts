@@ -1,23 +1,6 @@
-// ─────────────────────────────────────────────
-//  src/hooks/useLoginForm.ts
-//
-//  Manages all state for the login form:
-//    • field values + per-field errors
-//    • loading state during API call
-//    • password visibility toggle
-//    • calls authService.login()
-//    • saves token via tokenStorage on success
-//
-//  Special case: 401 with "verify your email"
-//  message → navigates to EmailSent screen so
-//  the user can resend their verification link.
-// ─────────────────────────────────────────────
-
 import { useState } from 'react';
 import { login, ApiError } from '../services/authService';
 import { tokenStorage } from '../storage/tokenStorage';
-
-// ── Form shape ────────────────────────────────
 
 export interface LoginFormValues {
   email: string;
@@ -26,7 +9,6 @@ export interface LoginFormValues {
 
 type FormErrors = Partial<Record<keyof LoginFormValues, string>>;
 
-// ── Validation ────────────────────────────────
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -46,7 +28,6 @@ function validate(values: LoginFormValues): FormErrors {
   return errors;
 }
 
-// ── Hook ──────────────────────────────────────
 
 export function useLoginForm() {
   const [values, setValues] = useState<LoginFormValues>({
