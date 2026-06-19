@@ -62,6 +62,8 @@ export interface Product {
   categoryName: string;
   imageUrl: string;
   storeId: string;
+  mrp?: number;
+  sellingPrice?: number;
   metadata: {
     weightGrams?: number;
     isVegetarian?: boolean;
