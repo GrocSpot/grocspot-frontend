@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
-import { getStore, getCategories, getProducts } from '../services/sessionService';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { getStore, getCategories, getProducts, getActiveShoppingList, getShoppingList, deleteShoppingList, addShoppingListItem, updateShoppingListItem, deleteShoppingListItem } from '../services/sessionService';
 import type { Category, Product, Store } from '../types';
 
 export interface CartItem {
   product: Product;
   qty: number;
+  itemId: string | null;
 }
 
 export function useSessionHome(storeId: string, sessionToken: string) {
@@ -19,6 +20,17 @@ export function useSessionHome(storeId: string, sessionToken: string) {
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
   const [cart, setCart] = useState<Map<string, CartItem>>(new Map());
+  const [listId, setListId] = useState<string | null>(null);
+  const [isRefreshingCart, setIsRefreshingCart] = useState(false);
+
+  // ── Fetch active shopping list (get listId) ──
+  useEffect(() => {
+    let cancelled = false;
+    getActiveShoppingList(sessionToken)
+      .then((list) => { if (!cancelled) setListId(list.listId); })
+      .catch(() => { /* non-fatal — add will be local-only if this fails */ });
+    return () => { cancelled = true; };
+  }, [sessionToken]);
 
   // ── Fetch store info once ─────────────────
   useEffect(() => {
@@ -56,30 +68,135 @@ export function useSessionHome(storeId: string, sessionToken: string) {
 
   // ── Cart helpers ──────────────────────────
   const addToCart = (product: Product) => {
+    const snapshot = cart.get(product.productId) ?? null;
+
+    // Optimistic update
     setCart((prev) => {
       const next = new Map(prev);
-      const existing = next.get(product.productId);
+      const cur = next.get(product.productId);
       next.set(product.productId, {
         product,
-        qty: existing ? existing.qty + 1 : 1,
+        qty: cur ? cur.qty + 1 : 1,
+        itemId: cur?.itemId ?? null,
       });
       return next;
     });
+
+    if (!listId) return;
+
+    if (!snapshot) {
+      // New product → POST
+      addShoppingListItem(listId, product.productId, sessionToken)
+        .then((item) => {
+          setCart((prev) => {
+            const next = new Map(prev);
+            const cur = next.get(product.productId);
+            if (!cur) return prev;
+            next.set(product.productId, { ...cur, itemId: item.itemId });
+            return next;
+          });
+        })
+        .catch(() => {
+          setCart((prev) => {
+            const next = new Map(prev);
+            next.delete(product.productId);
+            return next;
+          });
+        });
+    } else if (snapshot.itemId) {
+      // Already in cart → PATCH with incremented quantity
+      const newQty = snapshot.qty + 1;
+      updateShoppingListItem(listId, snapshot.itemId, newQty, sessionToken)
+        .catch(() => {
+          setCart((prev) => {
+            const next = new Map(prev);
+            const cur = next.get(product.productId);
+            if (!cur) return prev;
+            if (cur.qty <= 1) next.delete(product.productId);
+            else next.set(product.productId, { ...cur, qty: cur.qty - 1 });
+            return next;
+          });
+        });
+    }
   };
 
   const removeFromCart = (productId: string) => {
+    const snapshot = cart.get(productId);
+    if (!snapshot) return;
+
+    const newQty = snapshot.qty - 1;
+
+    // Optimistic update
     setCart((prev) => {
       const next = new Map(prev);
-      const existing = next.get(productId);
-      if (!existing) return prev;
-      if (existing.qty <= 1) {
+      if (newQty <= 0) {
         next.delete(productId);
       } else {
-        next.set(productId, { ...existing, qty: existing.qty - 1 });
+        next.set(productId, { ...snapshot, qty: newQty });
       }
       return next;
     });
+
+    if (!listId || !snapshot.itemId) return;
+
+    const revert = () => {
+      setCart((prev) => {
+        const next = new Map(prev);
+        next.set(productId, snapshot);
+        return next;
+      });
+    };
+
+    if (newQty <= 0) {
+      // Last unit → DELETE
+      deleteShoppingListItem(listId, snapshot.itemId, sessionToken).catch(revert);
+    } else {
+      // Still units remaining → PATCH with decremented quantity
+      updateShoppingListItem(listId, snapshot.itemId, newQty, sessionToken).catch(revert);
+    }
   };
+
+  const refreshCart = useCallback(async () => {
+    if (!listId) return;
+    setIsRefreshingCart(true);
+    try {
+      const list = await getShoppingList(listId, sessionToken);
+      setCart((prev) => {
+        const next = new Map<string, CartItem>();
+        for (const item of list.items) {
+          const existing = prev.get(item.productId);
+          if (existing) {
+            next.set(item.productId, {
+              ...existing,
+              qty: item.quantity,
+              itemId: item.itemId,
+            });
+          }
+        }
+        return next;
+      });
+    } catch {
+      // non-fatal — keep local state
+    } finally {
+      setIsRefreshingCart(false);
+    }
+  }, [listId, sessionToken]);
+
+  const clearCart = useCallback(async () => {
+    if (!listId) return;
+    const snapshot = new Map(cart);
+    const oldListId = listId;
+    setCart(new Map());
+    setListId(null);
+    try {
+      await deleteShoppingList(oldListId, sessionToken);
+      const newList = await getActiveShoppingList(sessionToken);
+      setListId(newList.listId);
+    } catch {
+      setCart(snapshot);
+      setListId(oldListId);
+    }
+  }, [listId, sessionToken, cart]);
 
   const cartCount = useMemo(() =>
     Array.from(cart.values()).reduce((sum, i) => sum + i.qty, 0),
@@ -101,7 +218,11 @@ export function useSessionHome(storeId: string, sessionToken: string) {
     cart,
     cartCount,
     cartItems,
+    listId,
     addToCart,
     removeFromCart,
+    refreshCart,
+    clearCart,
+    isRefreshingCart,
   };
 }

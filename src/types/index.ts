@@ -71,6 +71,27 @@ export interface Product {
   };
 }
 
+// ── Shopping list ─────────────────────────────
+
+export interface ShoppingListItem {
+  itemId: string;
+  listId: string;
+  productId: string;
+  quantity: number;
+  isCollected: boolean;
+  collectedAt: string | null;
+}
+
+export interface ShoppingList {
+  listId: string;
+  userId: string;
+  sessionId: string | null;
+  status: string;
+  createdAt: string;
+  completedAt: string | null;
+  items: ShoppingListItem[];
+}
+
 // ── Session init response ─────────────────────
 
 export interface SessionInitResponse {

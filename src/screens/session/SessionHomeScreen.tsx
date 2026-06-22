@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { useSessionHome } from '../../hooks/useSessionHome';
 import Svg, { Path } from 'react-native-svg';
 import { SkeletonCard } from './components/SkeletonCard';
 import { ProductCard } from './components/ProductCard';
+import { CartSheet } from './components/CartSheet';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'SessionHome'>;
@@ -25,6 +26,8 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export default function SessionHomeScreen({ navigation, route }: Props) {
   const { storeId, sessionToken, sessionId } = route.params;
+
+  const [cartOpen, setCartOpen] = useState(false);
 
   const {
     store,
@@ -37,8 +40,12 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
     setSelectedCategoryId,
     cart,
     cartCount,
+    cartItems,
     addToCart,
     removeFromCart,
+    refreshCart,
+    clearCart,
+    isRefreshingCart,
   } = useSessionHome(storeId, sessionToken);
 
   const handleSearchPress = useCallback(() => {
@@ -251,6 +258,7 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
           <TouchableOpacity
             className="bg-white px-5 py-2.5 rounded-xl flex-row items-center gap-2"
             activeOpacity={0.85}
+            onPress={() => setCartOpen(true)}
           >
             <Text className="text-[#166534] text-sm font-bold">View Cart</Text>
             <Text className="text-[#166534] text-sm">→</Text>
@@ -258,6 +266,19 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
         </View>
       )}
 
+      <CartSheet
+        visible={cartOpen}
+        onClose={() => setCartOpen(false)}
+        cartItems={cartItems}
+        isRefreshing={isRefreshingCart}
+        onRefresh={refreshCart}
+        onAdd={addToCart}
+        onRemove={removeFromCart}
+        onClearCart={async () => {
+          await clearCart();
+          setCartOpen(false);
+        }}
+      />
     </SafeAreaView>
   );
 }
