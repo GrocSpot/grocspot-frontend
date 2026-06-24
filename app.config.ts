@@ -6,6 +6,7 @@ export default {
   expo: {
     name: 'grocspot-frontend',
     slug: 'grocspot-frontend',
+    scheme: 'grocspot',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/icon.png',

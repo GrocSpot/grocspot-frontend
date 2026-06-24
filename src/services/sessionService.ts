@@ -1,14 +1,9 @@
-import { ENV } from '../config/env';
-import { ApiError } from './authService';
+import { apiFetch, bearerHeaders } from './apiClient';
+import { API_URLS } from './apiUrls';
 import type { Category, Product, Store, SessionInitResponse, ApiResponse, PaginatedResponse, ShoppingList, ShoppingListItem } from '../types';
 
-const BASE_URL = ENV.API_BASE_URL;
-
-// ── GUEST ONLY ────────────────────────────────
-export async function initGuestSession(
-  qrToken: string,
-): Promise<SessionInitResponse> {
-  const response = await fetch(`${BASE_URL}/api/sessions/init`, {
+export async function initGuestSession(qrToken: string): Promise<SessionInitResponse> {
+  return apiFetch<SessionInitResponse>(API_URLS.sessions.init, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -16,189 +11,93 @@ export async function initGuestSession(
       deviceInfo: navigator?.userAgent ?? 'unknown',
     }),
   });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new ApiError(response.status, data?.message ?? `Session init failed (${response.status})`);
-  }
-  return data as SessionInitResponse;
 }
 
-// ── GET /api/stores/{storeId} ─────────────────
-export async function getStore(
-  storeId: string,
-  sessionToken: string,
-): Promise<Store> {
-  const url = `${BASE_URL}/api/stores/${storeId}`;
-  const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${sessionToken}`,
-      'accept': '*/*',
-    },
+export async function getStore(storeId: string, sessionToken: string): Promise<Store> {
+  const data = await apiFetch<ApiResponse<Store>>(API_URLS.stores.byId(storeId), {
+    headers: bearerHeaders(sessionToken),
   });
-  const data: ApiResponse<Store> = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new ApiError(response.status, data?.message ?? `Failed to load store (${response.status})`);
-  }
   return data.response;
 }
 
-// ── GET /api/categories?storeId=xxx&page=1&size=20 ───
-export async function getCategories(
-  storeId: string,
-  sessionToken: string,
-): Promise<Category[]> {
-  const url = `${BASE_URL}/api/categories?storeId=${storeId}&page=1&size=20`;
-  const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${sessionToken}`,
-      'accept': '*/*',
-    },
+export async function getCategories(storeId: string, sessionToken: string): Promise<Category[]> {
+  const url = `${API_URLS.categories}?storeId=${storeId}&page=1&size=20`;
+  const data = await apiFetch<ApiResponse<PaginatedResponse<Category>>>(url, {
+    headers: bearerHeaders(sessionToken),
   });
-  const data: ApiResponse<PaginatedResponse<Category>> = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new ApiError(response.status, data?.message ?? `Failed to load categories (${response.status})`);
-  }
   return data.response.content;
 }
 
-// ── GET /api/products?storeId=xxx&page=1&size=20 ─────
 export async function getProducts(
   storeId: string,
   sessionToken: string,
   categoryId?: string,
+  query?: string,
 ): Promise<Product[]> {
-  const params = new URLSearchParams({
-    storeId,
-    page: '1',
-    size: '20',
-  });
+  const params = new URLSearchParams({ storeId, page: '1', size: '20' });
   if (categoryId) params.append('categoryId', categoryId);
-
-  const url = `${BASE_URL}/api/products?${params.toString()}`;
-  const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${sessionToken}`,
-      'accept': '*/*',
-    },
+  if (query) params.append('query', query);
+  const data = await apiFetch<ApiResponse<PaginatedResponse<Product>>>(`${API_URLS.products}?${params.toString()}`, {
+    headers: bearerHeaders(sessionToken),
   });
-  const data: ApiResponse<PaginatedResponse<Product>> = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new ApiError(response.status, data?.message ?? `Failed to load products (${response.status})`);
-  }
   return data.response.content;
 }
 
-// ── GET /api/shopping-lists/{listId} ──────────
-export async function getShoppingList(
-  listId: string,
-  sessionToken: string,
-): Promise<ShoppingList> {
-  const response = await fetch(`${BASE_URL}/api/shopping-lists/${listId}`, {
-    headers: {
-      'Authorization': `Bearer ${sessionToken}`,
-      'accept': '*/*',
-    },
+export async function getShoppingList(listId: string, sessionToken: string): Promise<ShoppingList> {
+  const data = await apiFetch<ApiResponse<ShoppingList>>(API_URLS.shoppingLists.byId(listId), {
+    headers: bearerHeaders(sessionToken),
   });
-  const data: ApiResponse<ShoppingList> = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new ApiError(response.status, data?.message ?? `Failed to load cart (${response.status})`);
-  }
   return data.response;
 }
 
-// ── DELETE /api/shopping-lists/{listId} ────────
-export async function deleteShoppingList(
-  listId: string,
-  sessionToken: string,
-): Promise<void> {
-  const response = await fetch(`${BASE_URL}/api/shopping-lists/${listId}`, {
+export async function deleteShoppingList(listId: string, sessionToken: string): Promise<void> {
+  await apiFetch<unknown>(API_URLS.shoppingLists.byId(listId), {
     method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${sessionToken}`,
-      'accept': '*/*',
-    },
+    headers: bearerHeaders(sessionToken),
   });
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    throw new ApiError(response.status, data?.message ?? `Failed to clear cart (${response.status})`);
-  }
 }
 
-// ── GET /api/shopping-lists/active ────────────
 export async function getActiveShoppingList(sessionToken: string): Promise<ShoppingList> {
-  const response = await fetch(`${BASE_URL}/api/shopping-lists/active`, {
-    headers: {
-      'Authorization': `Bearer ${sessionToken}`,
-      'accept': '*/*',
-    },
+  const data = await apiFetch<ApiResponse<ShoppingList>>(API_URLS.shoppingLists.active, {
+    headers: bearerHeaders(sessionToken),
   });
-  const data: ApiResponse<ShoppingList> = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new ApiError(response.status, data?.message ?? `Failed to load shopping list (${response.status})`);
-  }
   return data.response;
 }
 
-// ── POST /api/shopping-lists/{listId}/items ───
 export async function addShoppingListItem(
   listId: string,
   productId: string,
   sessionToken: string,
 ): Promise<ShoppingListItem> {
-  const response = await fetch(`${BASE_URL}/api/shopping-lists/${listId}/items`, {
+  const data = await apiFetch<ApiResponse<ShoppingListItem>>(API_URLS.shoppingLists.items(listId), {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${sessionToken}`,
-      'Content-Type': 'application/json',
-      'accept': '*/*',
-    },
+    headers: { ...bearerHeaders(sessionToken), 'Content-Type': 'application/json' },
     body: JSON.stringify({ productId, quantity: 1 }),
   });
-  const data: ApiResponse<ShoppingListItem> = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new ApiError(response.status, data?.message ?? `Failed to add item (${response.status})`);
-  }
   return data.response;
 }
 
-// ── PATCH /api/shopping-lists/{listId}/items/{itemId} ──
 export async function updateShoppingListItem(
   listId: string,
   itemId: string,
   quantity: number,
   sessionToken: string,
 ): Promise<ShoppingListItem> {
-  const response = await fetch(`${BASE_URL}/api/shopping-lists/${listId}/items/${itemId}`, {
+  const data = await apiFetch<ApiResponse<ShoppingListItem>>(API_URLS.shoppingLists.item(listId, itemId), {
     method: 'PATCH',
-    headers: {
-      'Authorization': `Bearer ${sessionToken}`,
-      'Content-Type': 'application/json',
-      'accept': '*/*',
-    },
+    headers: { ...bearerHeaders(sessionToken), 'Content-Type': 'application/json' },
     body: JSON.stringify({ quantity }),
   });
-  const data: ApiResponse<ShoppingListItem> = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new ApiError(response.status, data?.message ?? `Failed to update item (${response.status})`);
-  }
   return data.response;
 }
 
-// ── DELETE /api/shopping-lists/{listId}/items/{itemId} ──
 export async function deleteShoppingListItem(
   listId: string,
   itemId: string,
   sessionToken: string,
 ): Promise<void> {
-  const response = await fetch(`${BASE_URL}/api/shopping-lists/${listId}/items/${itemId}`, {
+  await apiFetch<unknown>(API_URLS.shoppingLists.item(listId, itemId), {
     method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${sessionToken}`,
-      'accept': '*/*',
-    },
+    headers: bearerHeaders(sessionToken),
   });
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    throw new ApiError(response.status, data?.message ?? `Failed to remove item (${response.status})`);
-  }
 }

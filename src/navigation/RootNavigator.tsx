@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Platform, View, ActivityIndicator } from 'react-native';
@@ -11,12 +11,18 @@ import HomeScreen from '../screens/home/HomeScreen';
 import QRScanScreen from '../screens/qr/QRScanScreen';
 import SessionHomeScreen from '../screens/session/SessionHomeScreen';
 import { sessionStorage } from '../storage/sessionStorage';
-import SearchScreen from '../screens/search/SearchScreen';
+import { ENV } from '../config/env';
+import * as Linking from 'expo-linking';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const frontendUrl = new URL(ENV.FRONTEND_BASE_URL);
 
 const linking = {
-  prefixes: ['http://localhost:8081', 'https://grocspot.com'],
+  prefixes: [
+    Linking.createURL('/'),                                          
+    `${frontendUrl.protocol}//${frontendUrl.host}`,                
+    'https://grocspot.com',                                       
+  ],
   config: {
     screens: {
       QRScan: {
@@ -26,7 +32,6 @@ const linking = {
     },
   },
 };
-
 export default function RootNavigator() {
   const [initialRoute, setInitialRoute] =
     useState<keyof RootStackParamList>('Login');
@@ -90,7 +95,6 @@ export default function RootNavigator() {
           component={SessionHomeScreen}
           initialParams={sessionParams ?? undefined}
         />
-        <Stack.Screen name="Search" component={SearchScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

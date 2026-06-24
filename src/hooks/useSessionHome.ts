@@ -8,7 +8,7 @@ export interface CartItem {
   itemId: string | null;
 }
 
-export function useSessionHome(storeId: string, sessionToken: string) {
+export function useSessionHome(storeId: string, sessionToken: string, searchQuery = '') {
   const [store, setStore] = useState<Store | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -54,17 +54,18 @@ export function useSessionHome(storeId: string, sessionToken: string) {
     return () => { cancelled = true; };
   }, [storeId, sessionToken]);
 
-  // ── Fetch products when category changes ──
+  // ── Fetch products when category or search query changes ──
   useEffect(() => {
     let cancelled = false;
     setIsLoadingProducts(true);
+    setError(null);
     const categoryId = selectedCategoryId === 'all' ? undefined : selectedCategoryId;
-    getProducts(storeId, sessionToken, categoryId)
+    getProducts(storeId, sessionToken, categoryId, searchQuery || undefined)
       .then((prods) => { if (!cancelled) setProducts(prods); })
       .catch((err) => { if (!cancelled) setError(err?.message ?? 'Failed to load products.'); })
       .finally(() => { if (!cancelled) setIsLoadingProducts(false); });
     return () => { cancelled = true; };
-  }, [storeId, sessionToken, selectedCategoryId]);
+  }, [storeId, sessionToken, selectedCategoryId, searchQuery]);
 
   // ── Cart helpers ──────────────────────────
   const addToCart = (product: Product) => {
