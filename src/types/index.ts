@@ -20,7 +20,6 @@ export type RootStackParamList = {
   Home: undefined;
   QRScan: { token: string };
   SessionHome: { storeId: string; sessionId?: string; sessionToken: string };
-  Search: { sessionToken: string; categories: Category[] };
 };
 
 export type StoreOpeningHours = Record<string, string>;
@@ -69,6 +68,27 @@ export interface Product {
     isVegetarian?: boolean;
     [key: string]: unknown;
   };
+}
+
+// ── Shopping list ─────────────────────────────
+
+export interface ShoppingListItem {
+  itemId: string;
+  listId: string;
+  productId: string;
+  quantity: number;
+  isCollected: boolean;
+  collectedAt: string | null;
+}
+
+export interface ShoppingList {
+  listId: string;
+  userId: string;
+  sessionId: string | null;
+  status: string;
+  createdAt: string;
+  completedAt: string | null;
+  items: ShoppingListItem[];
 }
 
 // ── Session init response ─────────────────────

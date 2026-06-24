@@ -1,10 +1,13 @@
-import { useCallback, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { getCategoryIcon } from '../../constants/categoryIcons';
 import {
   View,
   Text,
+  TextInput,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { sessionStorage } from '../../storage/sessionStorage';
@@ -15,6 +18,7 @@ import { useSessionHome } from '../../hooks/useSessionHome';
 import Svg, { Path } from 'react-native-svg';
 import { SkeletonCard } from './components/SkeletonCard';
 import { ProductCard } from './components/ProductCard';
+import { CartSheet } from './components/CartSheet';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'SessionHome'>;
@@ -25,6 +29,28 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export default function SessionHomeScreen({ navigation, route }: Props) {
   const { storeId, sessionToken, sessionId } = route.params;
+
+  const { width: screenWidth } = useWindowDimensions();
+  const isWide = screenWidth >= 768;
+  const CONTENT_MAX_WIDTH = 960;
+  const contentWidth = Math.min(screenWidth, CONTENT_MAX_WIDTH);
+  const numCols = isWide ? 3 : 2;
+  const CARD_GAP = 12;
+  const cardWidth = (contentWidth - 32 - CARD_GAP * (numCols - 1)) / numCols;
+  const contentStyle = isWide
+    ? { maxWidth: CONTENT_MAX_WIDTH, alignSelf: 'center' as const, width: '100%' as const }
+    : undefined;
+
+  const [cartOpen, setCartOpen] = useState(false);
+  const [queryInput, setQueryInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleQueryChange = (text: string) => {
+    setQueryInput(text);
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    searchDebounce.current = setTimeout(() => setSearchQuery(text.trim()), 600);
+  };
 
   const {
     store,
@@ -37,26 +63,28 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
     setSelectedCategoryId,
     cart,
     cartCount,
+    cartItems,
     addToCart,
     removeFromCart,
-  } = useSessionHome(storeId, sessionToken);
-
-  const handleSearchPress = useCallback(() => {
-    navigation.navigate('Search', { sessionToken, categories });
-  }, [navigation, sessionToken, categories]);
+    refreshCart,
+    clearCart,
+    isRefreshingCart,
+  } = useSessionHome(storeId, sessionToken, searchQuery);
 
   useEffect(() => {
     sessionStorage.save({ storeId, sessionToken, sessionId });
   }, [storeId, sessionToken, sessionId]);
 
-  const sectionLabel =
-    selectedCategoryId === 'all'
+  const sectionLabel = searchQuery
+    ? `Results for "${searchQuery}"`
+    : selectedCategoryId === 'all'
       ? 'All Products'
       : categories.find((c) => c.categoryId === selectedCategoryId)?.name ?? 'Products';
 
   return (
     <SafeAreaView className="flex-1 bg-[#F0FDF4]" edges={['top']}>
       <View className="bg-white border-b border-[#BBF7D0]">
+        <View style={contentStyle}>
         <View className="flex-row items-center justify-between px-4 pt-3 pb-2">
           <View className="flex-row items-center gap-2">
             <Text className="text-[17px] font-bold text-[#166534] tracking-tight">
@@ -114,20 +142,28 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
             </Text>
           </View>
         </View>
-        <TouchableOpacity
-          onPress={handleSearchPress}
-          activeOpacity={0.8}
-          className="mx-4 mb-2 px-3 py-2.5 bg-[#F0FDF4] rounded-xl border border-[#BBF7D0] flex-row items-center gap-2"
-        >
+        <View className="mx-4 mb-2 px-3 py-2.5 bg-[#F0FDF4] rounded-xl border border-[#BBF7D0] flex-row items-center gap-2">
           <Svg width={16} height={16} viewBox="0 0 448 512" fill="#9CA3AF">
             <Path d="M448 449L301.2 300.2c20-27.9 31.9-62.2 31.9-99.2 0-93.1-74.7-168.9-166.5-168.9-91.9-.1-166.6 75.7-166.6 168.8S74.7 369.8 166.5 369.8c39.8 0 76.3-14.2 105-37.9L417.5 480 448 449zM166.5 330.8c-70.6 0-128.1-58.3-128.1-129.9S95.9 71 166.5 71 294.6 129.3 294.6 200.9 237.2 330.8 166.5 330.8z" />
           </Svg>
-          <Text className="text-[13px] text-[#9CA3AF] flex-1">
-            Search milk, bread, fruits…
-          </Text>
-        </TouchableOpacity>
+          <TextInput
+            value={queryInput}
+            onChangeText={handleQueryChange}
+            placeholder="Search milk, bread, fruits…"
+            placeholderTextColor="#9CA3AF"
+            className="flex-1 text-[13px] text-[#1F2937]"
+            returnKeyType="search"
+            autoCorrect={false}
+          />
+          {queryInput.length > 0 && (
+            <TouchableOpacity onPress={() => { setQueryInput(''); setSearchQuery(''); }}>
+              <Text className="text-[#9CA3AF] text-base">✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        <Text className="text-sm font-bold text-[#1F2937] px-4 pt-3 pb-3">Categories</Text>
         {isLoadingCats ? (
-          <View className="h-10 items-center justify-center mb-2">
+          <View className="h-20 items-center justify-center mb-2">
             <ActivityIndicator size="small" color="#166534" />
           </View>
         ) : (
@@ -137,15 +173,16 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
             contentContainerStyle={{ paddingHorizontal: 16, gap: 8, paddingBottom: 12 }}
           >
             <TouchableOpacity
-              onPress={() => setSelectedCategoryId('all')}
-              className={`flex-row items-center gap-1.5 px-3 py-1.5 rounded-full border ${
+              onPress={() => { setSelectedCategoryId('all'); setQueryInput(''); setSearchQuery(''); }}
+              className={`items-center justify-center rounded-2xl px-4 py-3 border ${
                 selectedCategoryId === 'all'
                   ? 'bg-[#166534] border-[#166534]'
                   : 'bg-white border-[#BBF7D0]'
               }`}
             >
+              <Text className="text-2xl mb-1">🛒</Text>
               <Text className={`text-xs font-semibold ${
-                selectedCategoryId === 'all' ? 'text-white' : 'text-[#6B7280]'
+                selectedCategoryId === 'all' ? 'text-white' : 'text-[#1F2937]'
               }`}>
                 All
               </Text>
@@ -156,13 +193,14 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
               return (
                 <TouchableOpacity
                   key={cat.categoryId}
-                  onPress={() => setSelectedCategoryId(cat.categoryId)}
-                  className={`flex-row items-center gap-1.5 px-3 py-1.5 rounded-full border ${
+                  onPress={() => { setSelectedCategoryId(cat.categoryId); setQueryInput(''); setSearchQuery(''); }}
+                  className={`items-center justify-center rounded-2xl px-4 py-3 border ${
                     active ? 'bg-[#166534] border-[#166534]' : 'bg-white border-[#BBF7D0]'
                   }`}
                 >
+                  <Text className="text-2xl mb-1">{getCategoryIcon(cat.name)}</Text>
                   <Text className={`text-xs font-semibold ${
-                    active ? 'text-white' : 'text-[#6B7280]'
+                    active ? 'text-white' : 'text-[#1F2937]'
                   }`}>
                     {cap(cat.name)}
                   </Text>
@@ -171,11 +209,13 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
             })}
           </ScrollView>
         )}
+        </View>
       </View>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: cartCount > 0 ? 100 : 24 }}
       >
+        <View style={contentStyle}>
         {/* Promo banner */}
         <View className="mx-4 mt-4 mb-4 bg-[#166534] rounded-2xl px-4 py-4 flex-row items-center justify-between">
           <View className="flex-1 pr-3">
@@ -205,9 +245,9 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
           </View>
         )}
         {isLoadingProducts && !error && (
-          <View className="flex-row flex-wrap px-4 gap-[4%]">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <SkeletonCard key={i} />
+          <View className="flex-row flex-wrap px-4" style={{ gap: CARD_GAP }}>
+            {Array.from({ length: numCols * 2 }).map((_, i) => (
+              <SkeletonCard key={i} cardWidth={cardWidth} />
             ))}
           </View>
         )}
@@ -223,7 +263,7 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
           </View>
         )}
         {!isLoadingProducts && !error && products.length > 0 && (
-          <View className="flex-row flex-wrap px-4 gap-[4%]">
+          <View className="flex-row flex-wrap px-4" style={{ gap: CARD_GAP }}>
             {products.map((product) => {
               const item = cart.get(product.productId);
               return (
@@ -233,11 +273,13 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
                   qty={item?.qty ?? 0}
                   onAdd={() => addToCart(product)}
                   onRemove={() => removeFromCart(product.productId)}
+                  cardWidth={cardWidth}
                 />
               );
             })}
           </View>
         )}
+        </View>
       </ScrollView>
       {cartCount > 0 && (
         <View className="absolute bottom-0 left-0 right-0 bg-[#166534] px-4 py-3 flex-row items-center justify-between">
@@ -251,6 +293,7 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
           <TouchableOpacity
             className="bg-white px-5 py-2.5 rounded-xl flex-row items-center gap-2"
             activeOpacity={0.85}
+            onPress={() => setCartOpen(true)}
           >
             <Text className="text-[#166534] text-sm font-bold">View Cart</Text>
             <Text className="text-[#166534] text-sm">→</Text>
@@ -258,6 +301,19 @@ export default function SessionHomeScreen({ navigation, route }: Props) {
         </View>
       )}
 
+      <CartSheet
+        visible={cartOpen}
+        onClose={() => setCartOpen(false)}
+        cartItems={cartItems}
+        isRefreshing={isRefreshingCart}
+        onRefresh={refreshCart}
+        onAdd={addToCart}
+        onRemove={removeFromCart}
+        onClearCart={async () => {
+          await clearCart();
+          setCartOpen(false);
+        }}
+      />
     </SafeAreaView>
   );
 }

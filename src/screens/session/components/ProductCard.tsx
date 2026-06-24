@@ -6,13 +6,14 @@ interface ProductCardProps {
   qty: number;
   onAdd: () => void;
   onRemove: () => void;
+  cardWidth?: number;
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const BG_COLORS = ['#FFF7ED', '#F0FDF4', '#FFF1F2', '#F0F9FF', '#FEFCE8', '#FAF5FF'];
 
-export function ProductCard({ product, qty, onAdd, onRemove }: ProductCardProps) {
+export function ProductCard({ product, qty, onAdd, onRemove, cardWidth }: ProductCardProps) {
   const colorIndex = product.categoryId
     ? product.categoryId.charCodeAt(product.categoryId.length - 1) % BG_COLORS.length
     : 0;
@@ -21,13 +22,13 @@ export function ProductCard({ product, qty, onAdd, onRemove }: ProductCardProps)
   return (
     <View
       className="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden mb-3"
-      style={{ width: '48%' }}
+      style={{ width: cardWidth ?? '48%' }}
     >
       <View className="h-32 items-center justify-center" style={{ backgroundColor: cardBg }}>
         {product.imageUrl ? (
           <Image
             source={{ uri: product.imageUrl }}
-            className="w-full h-full"
+            style={{ width: '100%', height: '100%' }}
             resizeMode="contain"
           />
         ) : (
