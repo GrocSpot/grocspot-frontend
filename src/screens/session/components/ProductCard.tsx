@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import type { Product } from '../../../types';
 
@@ -14,6 +15,8 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const BG_COLORS = ['#FFF7ED', '#F0FDF4', '#FFF1F2', '#F0F9FF', '#FEFCE8', '#FAF5FF'];
 
 export function ProductCard({ product, qty, onAdd, onRemove, cardWidth }: ProductCardProps) {
+  const [imgError, setImgError] = useState(false);
+
   const colorIndex = product.categoryId
     ? product.categoryId.charCodeAt(product.categoryId.length - 1) % BG_COLORS.length
     : 0;
@@ -25,11 +28,12 @@ export function ProductCard({ product, qty, onAdd, onRemove, cardWidth }: Produc
       style={{ width: cardWidth ?? '48%' }}
     >
       <View className="h-32 items-center justify-center" style={{ backgroundColor: cardBg }}>
-        {product.imageUrl ? (
+        {product.imageUrl && !imgError ? (
           <Image
             source={{ uri: product.imageUrl }}
             style={{ width: '100%', height: '100%' }}
             resizeMode="contain"
+            onError={() => setImgError(true)}
           />
         ) : (
           <Text className="text-5xl">📦</Text>
