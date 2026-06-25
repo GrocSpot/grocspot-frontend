@@ -16,7 +16,6 @@ import { Input } from '../../components/ui/Input';
 import { Divider } from '../../components/ui/Divider';
 import type { RootStackParamList } from '../../types';
 import { Button } from '../../components/ui/button';
-import { ENV } from '../../config/env';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Login'>;
@@ -46,6 +45,11 @@ export default function LoginScreen({ navigation }: Props) {
 
   const onSuccess = () => navigation.navigate('Home');
   const onUnverified = (email: string) => navigation.navigate('EmailSent', { email });
+  const onManager = (storeId: string, accessToken: string) =>
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'LayoutEditor', params: { storeId, accessToken } }],
+    });
 
   return (
     <SafeAreaView className="flex-1 bg-[#F8FBF9]">
@@ -94,7 +98,7 @@ export default function LoginScreen({ navigation }: Props) {
             secureTextEntry={!showPassword}
             autoCapitalize="none"
             returnKeyType="done"
-            onSubmitEditing={() => handleSubmit({ onSuccess, onUnverified })}
+            onSubmitEditing={() => handleSubmit({ onSuccess, onUnverified, onManager })}
             rightIcon={<EyeIcon visible={showPassword} />}
             onRightIconPress={toggleShowPassword}
           />
@@ -108,7 +112,7 @@ export default function LoginScreen({ navigation }: Props) {
           <Button
             title="Sign In"
             loading={isLoading}
-            onPress={() => handleSubmit({ onSuccess, onUnverified })}
+            onPress={() => handleSubmit({ onSuccess, onUnverified, onManager })}
           />
 
           <Divider label="or continue with" />

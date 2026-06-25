@@ -13,6 +13,7 @@ import SessionHomeScreen from '../screens/session/SessionHomeScreen';
 import { sessionStorage } from '../storage/sessionStorage';
 import { ENV } from '../config/env';
 import * as Linking from 'expo-linking';
+import LayoutEditorScreen from '../screens/layout/LayoutEditorScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const frontendUrl = new URL(ENV.FRONTEND_BASE_URL);
@@ -78,23 +79,14 @@ export default function RootNavigator() {
 
   return (
     <NavigationContainer linking={linking}>
-      <Stack.Navigator
-        initialRouteName={initialRoute}
-        screenOptions={{
-          headerShown: false,
-          animation: 'slide_from_right',
-        }}
-      >
+      <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false, animation: 'slide_from_right', }} >
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="SignUp" component={SignUpScreen} />
         <Stack.Screen name="EmailSent" component={EmailSentScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="QRScan" component={QRScanScreen} />
-        <Stack.Screen
-          name="SessionHome"
-          component={SessionHomeScreen}
-          initialParams={sessionParams ?? undefined}
-        />
+        <Stack.Screen name="SessionHome" component={SessionHomeScreen} initialParams={sessionParams ?? undefined} />
+        <Stack.Screen name="LayoutEditor" component={LayoutEditorScreen} options={{ gestureEnabled: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

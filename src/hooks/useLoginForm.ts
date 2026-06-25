@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { login, ApiError } from '../services/authService';
 import { tokenStorage } from '../storage/tokenStorage';
+import { getUserRole, decodeAccessToken } from '../utils/tokenUtils';
 
 export interface LoginFormValues {
   email: string;
@@ -49,6 +50,7 @@ export function useLoginForm() {
   const handleSubmit = async (callbacks: {
     onSuccess: () => void;
     onUnverified: (email: string) => void;
+    onManager: (storeId: string, accessToken: string) => void; 
   }) => {
     // 1. Client-side validation
     const validationErrors = validate(values);
@@ -69,7 +71,13 @@ export function useLoginForm() {
       await tokenStorage.save(data.response.accessToken);
 
       // 4. Navigate to home
-      callbacks.onSuccess();
+       const role = getUserRole(data.response.accessToken);
+    const payload = decodeAccessToken(data.response.accessToken);
+if (role === 'manager' && payload?.storeId) {
+  callbacks.onManager(payload.storeId, data.response.accessToken);
+  return;
+}
+    callbacks.onSuccess();
     } catch (err) {
       if (err instanceof ApiError) {
         // 5a. Email not verified → take them to EmailSent

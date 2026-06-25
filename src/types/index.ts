@@ -20,6 +20,7 @@ export type RootStackParamList = {
   Home: undefined;
   QRScan: { token: string };
   SessionHome: { storeId: string; sessionId?: string; sessionToken: string };
+  LayoutEditor: { storeId: string; accessToken: string }; // ← NEW
 };
 
 export type StoreOpeningHours = Record<string, string>;
